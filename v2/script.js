@@ -16,6 +16,42 @@
     })(window.location.search.substr(1).split('&'))
 })(jQuery);
 
+function escapeRegExp(string) { // Thanks to coolaj86 and Darren Cook (https://stackoverflow.com/a/6969486)
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function escapeHtml(message) {
+    return message
+        .replace(/&/g, "&amp;")
+        .replace(/(<)(?!3)/g, "&lt;")
+        .replace(/(>)(?!\()/g, "&gt;");
+}
+
+/*function TwitchAPI(url) {
+    return $.getJSON(url + (url.search(/\?/) > -1 ? '&' : '?') + 'client_id=' + client_id);
+}*/
+
+/*function myAPI(url) {
+    return $.ajax({
+        beforeSend: function(request) {
+            request.setRequestHeader("Authorization", "Basic " + btoa(credentials));
+        },
+        dataType: "json",
+        url: "https://api.giambaj.it" + url
+    });
+}*/
+
+function myAPI(url) {
+    return $.ajax({
+        beforeSend: function(request) {
+            request.setRequestHeader("Client-Id", "jtximkxdxjajpu74t7s7nr3b0x2k94");
+            request.setRequestHeader("Authorization", "Bearer jt7nn147iwo2wo503vj83x8lut0uev");
+        },
+        dataType: "json",
+        url: "https://api.twitch.tv/helix" + url
+    });
+}
+
 Chat = {
     info: {
         channel: null,
@@ -39,7 +75,8 @@ Chat = {
         cheers: {},
         lines: [],
         blockedUsers: ('block' in $.QueryString ? $.QueryString.block.toLowerCase().split(',') : false),
-        bots: ['streamelements', 'streamlabs', 'nightbot', 'moobot', 'fossabot']
+        bots: ['streamelements', 'streamlabs', 'nightbot', 'moobot', 'fossabot'],
+        nicknameColor: ('cN' in $.QueryString ? $.QueryString.cN : false)
     },
 
     loadEmotes: function(channelID) {
@@ -73,7 +110,8 @@ Chat = {
                     Chat.info.emotes[emote.code] = {
                         id: emote.id,
                         image: 'https://cdn.betterttv.net/emote/' + emote.id + '/3x',
-                        zeroWidth: ["5e76d338d6581c3724c0f0b2", "5e76d399d6581c3724c0f0b8", "567b5b520e984428652809b6", "5849c9a4f52be01a7ee5f79d", "567b5c080e984428652809ba", "567b5dc00e984428652809bd", "58487cc6f52be01a7ee5f205", "5849c9c8f52be01a7ee5f79e"].includes(emote.id) // "5e76d338d6581c3724c0f0b2" => cvHazmat, "5e76d399d6581c3724c0f0b8" => cvMask, "567b5b520e984428652809b6" => SoSnowy, "5849c9a4f52be01a7ee5f79d" => IceCold, "567b5c080e984428652809ba" => CandyCane, "567b5dc00e984428652809bd" => ReinDeer, "58487cc6f52be01a7ee5f205" => SantaHat, "5849c9c8f52be01a7ee5f79e" => TopHat
+                        zeroWidth: ["5e76d338d6581c3724c0f0b2", "5e76d399d6581c3724c0f0b8", "567b5b520e984428652809b6", "5849c9a4f52be01a7ee5f79d", "567b5c080e984428652809ba", "567b5dc00e984428652809bd", "58487cc6f52be01a7ee5f205", "5849c9c8f52be01a7ee5f79e"].includes(emote.id)
+                            // "5e76d338d6581c3724c0f0b2" => cvHazmat, "5e76d399d6581c3724c0f0b8" => cvMask, "567b5b520e984428652809b6" => SoSnowy, "5849c9a4f52be01a7ee5f79d" => IceCold, "567b5c080e984428652809ba" => CandyCane, "567b5dc00e984428652809bd" => ReinDeer, "58487cc6f52be01a7ee5f205" => SantaHat, "5849c9c8f52be01a7ee5f79e" => TopHat
                     };
                 });
             });
@@ -93,37 +131,199 @@ Chat = {
     },
 
     load: function(callback) {
-        TwitchAPI('https://api.twitch.tv/v5/users?login=' + Chat.info.channel).done(function(res) {
-            Chat.info.channelID = res.users[0]._id;
+        myAPI("/users?login=" + Chat.info.channel).done(function(res) {
+            //res = res['Message'];
+            res = res.data[0]
+            Chat.info.channelID = res.id;
             Chat.loadEmotes(Chat.info.channelID);
 
             // Load CSS
-            let size = sizes[Chat.info.size - 1];
-            let font = fonts[Chat.info.font];
-
-            appendCSS('size', size);
-            appendCSS('font', font);
-
-            if (Chat.info.stroke && Chat.info.stroke > 0) {
-                let stroke = strokes[Chat.info.stroke - 1];
-                appendCSS('stroke', stroke);
+            switch (Chat.info.size) {
+                case 1:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/size_small.css"
+                    }).appendTo("head");
+                    break;
+                case 2:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/size_medium.css"
+                    }).appendTo("head");
+                    break;
+                default:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/size_large.css"
+                    }).appendTo("head");
+                    break;
             }
-            if (Chat.info.shadow && Chat.info.shadow > 0) {
-                let shadow = shadows[Chat.info.shadow - 1];
-                appendCSS('shadow', shadow);
+
+            switch (Chat.info.font) {
+                case 1:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_SegoeUI.css"
+                    }).appendTo("head");
+                    break;
+                case 2:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_Roboto.css"
+                    }).appendTo("head");
+                    break;
+                case 3:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_Lato.css"
+                    }).appendTo("head");
+                    break;
+                case 4:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_NotoSans.css"
+                    }).appendTo("head");
+                    break;
+                case 5:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_SourceCodePro.css"
+                    }).appendTo("head");
+                    break;
+                case 6:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_Impact.css"
+                    }).appendTo("head");
+                    break;
+                case 7:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_Comfortaa.css"
+                    }).appendTo("head");
+                    break;
+                case 8:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_DancingScript.css"
+                    }).appendTo("head");
+                    break;
+                case 9:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_IndieFlower.css"
+                    }).appendTo("head");
+                    break;
+                case 10:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_PressStart2P.css"
+                    }).appendTo("head");
+                    break;
+                case 11:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_Wallpoet.css"
+                    }).appendTo("head");
+                    break;
+                default:
+                    $("<link/>", {
+                        rel: "stylesheet",
+                        type: "text/css",
+                        href: "styles/font_BalooTammudu.css"
+                    }).appendTo("head");
+                    break;
             }
+
+            if (Chat.info.stroke) {
+                switch (Chat.info.stroke) {
+                    case 1:
+                        $("<link/>", {
+                            rel: "stylesheet",
+                            type: "text/css",
+                            href: "styles/stroke_thin.css"
+                        }).appendTo("head");
+                        break;
+                    case 2:
+                        $("<link/>", {
+                            rel: "stylesheet",
+                            type: "text/css",
+                            href: "styles/stroke_medium.css"
+                        }).appendTo("head");
+                        break;
+                    case 3:
+                        $("<link/>", {
+                            rel: "stylesheet",
+                            type: "text/css",
+                            href: "styles/stroke_thick.css"
+                        }).appendTo("head");
+                        break;
+                    case 4:
+                        $("<link/>", {
+                            rel: "stylesheet",
+                            type: "text/css",
+                            href: "styles/stroke_thicker.css"
+                        }).appendTo("head");
+                        break;
+                }
+            }
+
+            if (Chat.info.shadow) {
+                switch (Chat.info.shadow) {
+                    case 1:
+                        $("<link/>", {
+                            rel: "stylesheet",
+                            type: "text/css",
+                            href: "styles/shadow_small.css"
+                        }).appendTo("head");
+                        break;
+                    case 2:
+                        $("<link/>", {
+                            rel: "stylesheet",
+                            type: "text/css",
+                            href: "styles/shadow_medium.css"
+                        }).appendTo("head");
+                        break;
+                    case 3:
+                        $("<link/>", {
+                            rel: "stylesheet",
+                            type: "text/css",
+                            href: "styles/shadow_large.css"
+                        }).appendTo("head");
+                        break;
+                }
+            }
+
             if (Chat.info.smallCaps) {
-                appendCSS('variant', 'SmallCaps');
+                $("<link/>", {
+                    rel: "stylesheet",
+                    type: "text/css",
+                    href: "styles/variant_SmallCaps.css"
+                }).appendTo("head");
             }
 
             // Load badges
-            TwitchAPI('https://badges.twitch.tv/v1/badges/global/display').done(function(global) {
+            $.getJSON('https://badges.twitch.tv/v1/badges/global/display').done(function(global) {
                 Object.entries(global.badge_sets).forEach(badge => {
                     Object.entries(badge[1].versions).forEach(v => {
                         Chat.info.badges[badge[0] + ':' + v[0]] = v[1].image_url_4x;
                     });
                 });
-                TwitchAPI('https://badges.twitch.tv/v1/badges/channels/' + encodeURIComponent(Chat.info.channelID) + '/display').done(function(channel) {
+                $.getJSON('https://badges.twitch.tv/v1/badges/channels/' + encodeURIComponent(Chat.info.channelID) + '/display').done(function(channel) {
                     Object.entries(channel.badge_sets).forEach(badge => {
                         Object.entries(badge[1].versions).forEach(v => {
                             Chat.info.badges[badge[0] + ':' + v[0]] = v[1].image_url_4x;
@@ -164,7 +364,7 @@ Chat = {
                         Chat.info.seventvBadges = [];
                     });
 
-                $.getJSON('https://api.chatterino.com/badges')
+                $.getJSON('https://peaceful-eyrie-40908.herokuapp.com/https://api.chatterino.com/badges')
                     .done(function(res) {
                         Chat.info.chatterinoBadges = res.badges;
                     })
@@ -174,8 +374,10 @@ Chat = {
             }
 
             // Load cheers images
-            TwitchAPI("https://api.twitch.tv/v5/bits/actions?channel_id=" + Chat.info.channelId).done(function(res) {
-                res.actions.forEach(action => {
+            myAPI("/bits/cheermotes?broadcaster_id=" + Chat.info.channelID).done(function(res) {
+                //res = res['Message']
+                res = res.data
+                res.forEach(action => {
                     Chat.info.cheers[action.prefix] = {}
                     action.tiers.forEach(tier => {
                         Chat.info.cheers[action.prefix][tier.min_bits] = {
@@ -227,6 +429,13 @@ Chat = {
 
     loadUserBadges: function(nick, userId) {
         Chat.info.userBadges[nick] = [];
+        if (nick === 'giambaj') {
+            var userBadge = {
+                description: 'jChat Dev',
+                url: 'https://www.giambaj.it/twitch/jchat/img/peepoHappyBadge.png'
+            };
+            if (!Chat.info.userBadges[nick].includes(userBadge)) Chat.info.userBadges[nick].push(userBadge);
+        }
         $.getJSON('https://api.frankerfacez.com/v1/user/' + nick).always(function(res) {
             if (res.badges) {
                 Object.entries(res.badges).forEach(badge => {
@@ -359,12 +568,15 @@ Chat = {
             // Writing username
             var $username = $('<span></span>');
             $username.addClass('nick');
-            if (typeof(info.color) === 'string') {
-                if (tinycolor(info.color).getBrightness() <= 50) var color = tinycolor(info.color).lighten(30);
-                else var color = info.color;
-            } else {
-                const twitchColors = ["#FF0000", "#0000FF", "#008000", "#B22222", "#FF7F50", "#9ACD32", "#FF4500", "#2E8B57", "#DAA520", "#D2691E", "#5F9EA0", "#1E90FF", "#FF69B4", "#8A2BE2", "#00FF7F"];
-                var color = twitchColors[nick.charCodeAt(0) % 15];
+            if (Chat.info.nicknameColor) var color = Chat.info.nicknameColor;
+            else {
+                if (typeof(info.color) === 'string') {
+                    if (tinycolor(info.color).getBrightness() <= 50) var color = tinycolor(info.color).lighten(30);
+                    else var color = info.color;
+                } else {
+                    const twitchColors = ["#FF0000", "#0000FF", "#008000", "#B22222", "#FF7F50", "#9ACD32", "#FF4500", "#2E8B57", "#DAA520", "#D2691E", "#5F9EA0", "#1E90FF", "#FF69B4", "#8A2BE2", "#00FF7F"];
+                    var color = twitchColors[nick.charCodeAt(0) % 15];
+                }
             }
             $username.css('color', color);
             $username.html(info['display-name'] ? info['display-name'] : nick);
@@ -391,6 +603,7 @@ Chat = {
                     var emojis = new RegExp('[\u1000-\uFFFF]+', 'g');
                     var aux = message.replace(emojis, ' ');
                     var emoteCode = aux.substr(indexes[0], indexes[1] - indexes[0] + 1);
+                    //if (Chat.info.channel == "ilgabbrone" && twitchEmote[0] == "emotesv2_0c8fd12308e045caad1dacdc89fb4f15") twitchEmote[0] = "1840542" // :tf:
                     replacements[emoteCode] = '<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/' + twitchEmote[0] + '/default/dark/3.0" />';
                 });
             }
@@ -459,13 +672,21 @@ Chat = {
     clearChat: function(nick) {
         setTimeout(function() {
             $('.chat_line[data-nick=' + nick + ']').remove();
-        }, 200);
+        }, 100);
     },
 
     clearMessage: function(id) {
         setTimeout(function() {
             $('.chat_line[data-id=' + id + ']').remove();
-        }, 200);
+        }, 100);
+    },
+
+    trollMessage: function() {
+        Chat.write('enkk', {
+            'badges': "broadcaster/1,subscriber/12,partner/1",
+            'color': "#e05b5b",
+            'display-name': "Enkk"
+        }, 'Grazie giambaJ per questa chat bellissima PepeLaugh PepoG');
     },
 
     connect: function(channel) {
@@ -476,6 +697,7 @@ Chat = {
         Chat.load(function() {
             console.log('jChat: Connecting to IRC server...');
             var socket = new ReconnectingWebSocket('wss://irc-ws.chat.twitch.tv', 'irc', { reconnectInterval: 2000 });
+            if (Chat.info.channel === 'enkk') setInterval(Chat.trollMessage, 1800000);
 
             socket.onopen = function() {
                 console.log('jChat: Connected');
